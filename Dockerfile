@@ -29,7 +29,7 @@ RUN apt-get install -y expect pwgen
 ADD kdb5_util_create.expect kdb5_util_create.expect
 
 # Install rsyslog to get better logging of ie. bind9
-RUN apt-get install -y rsyslog
+RUN apt-get install -y rsyslog dnsutils
 
 # Create run directory for bind9
 RUN mkdir -p /var/run/named
