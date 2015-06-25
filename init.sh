@@ -9,6 +9,17 @@ if [[ $SAMBA_HOST_IP ]]; then
     SAMBA_HOST_IP_PARAM="--host-ip=${SAMBA_HOST_IP}"
 fi
 
+kerberosInit () {                                                                                          
+                                                                                                           
+    ln -sf /var/lib/samba/private/krb5.conf /etc/krb5.conf                                                 
+    # Create Kerberos database                                                                             
+    expect kdb5_util_create.expect                                                                         
+    # Export kerberos keytab for use with sssd                                                             
+    samba-tool domain exportkeytab /etc/krb5.keytab #hernad: ne trebamo ovo --principal ${HOSTNAME}\$      
+    sed -i "s/SAMBA_REALM/${SAMBA_REALM}/" /etc/sssd/sssd.conf                                       
+                                                                                                     
+}
+
 appSetup () {
     touch /etc/samba/.alreadysetup
 
@@ -26,16 +37,13 @@ appSetup () {
     rm -rf /var/lib/samba/private/*
     samba-tool domain provision --use-rfc2307 --domain=$SAMBA_DOMAIN --realm=$SAMBA_REALM --server-role=dc\
       --dns-backend=BIND9_DLZ --adminpass=$SAMBA_ADMIN_PASSWORD $SAMBA_HOST_IP_PARAM
-    cp /var/lib/samba/private/krb5.conf /etc/krb5.conf
-    # Create Kerberos database
-    expect kdb5_util_create.expect
-    # Export kerberos keytab for use with sssd
-    samba-tool domain exportkeytab /etc/krb5.keytab #hernad: ne trebamo ovo --principal ${HOSTNAME}\$
-    sed -i "s/SAMBA_REALM/${SAMBA_REALM}/" /etc/sssd/sssd.conf
+
 }
 
 appStart () {
     [ -f /etc/samba/.alreadysetup ] && echo "Skipping setup..." || appSetup
+
+    kerberosInit
 
     # Start the services
     /usr/bin/supervisord
