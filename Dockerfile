@@ -42,6 +42,24 @@ RUN chmod 0600 /etc/sssd/sssd.conf
 ADD supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 ADD init.sh /init.sh
 RUN chmod 755 /init.sh
-EXPOSE 22 53 389 88 135 139 138 445 464 3268 3269
+
+# https://wiki.samba.org/index.php/Samba_port_usage
+
+EXPOSE 22 
+EXPOSE 53
+EXPOSE 53/udp
+EXPOSE 135 137 138 139
+EXPOSE 389
+EXPOSE 389/udp 
+EXPOSE 445
+EXPOSE 445/udp
+EXPOSE 464
+EXPOSE 464/udp
+# EXPOSE 3268 3269 - already in 1024-5000 range
+EXPOSE 1024-5000
+EXPOSE 5353
+EXPOSE 5353/udp
+
+
 ENTRYPOINT ["/init.sh"]
 CMD ["app:start"]
