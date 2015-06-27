@@ -6,16 +6,27 @@ SAMBA_DOMAIN=${SAMBA_DOMAIN:-samdom}
 SAMBA_REALM=${SAMBA_REALM:-samdom.example.com}
 
 if [[ $SAMBA_HOST_IP ]]; then
-    SAMBA_HOST_IP="--host-ip=${SAMBA_HOST_IP}"
+    SAMBA_HOST_IP_PARAM="--host-ip=${SAMBA_HOST_IP}"
 fi
+
+kerberosInit () {                                                                                          
+                                                                                                           
+    ln -sf /var/lib/samba/private/krb5.conf /etc/krb5.conf                                                 
+    # Create Kerberos database                                                                             
+    expect kdb5_util_create.expect                                                                         
+    # Export kerberos keytab for use with sssd                                                             
+    samba-tool domain exportkeytab /etc/krb5.keytab #hernad: ne trebamo ovo --principal ${HOSTNAME}\$      
+    sed -i "s/SAMBA_REALM/${SAMBA_REALM}/" /etc/sssd/sssd.conf                                       
+                                                                                                     
+}
 
 appSetup () {
     touch /etc/samba/.alreadysetup
 
     # Generate passwords
-    ROOT_PASSWORD=$(pwgen -c -n -1 12)
-    SAMBA_ADMIN_PASSWORD=$(pwgen -cny 10 1)
-    export KERBEROS_PASSWORD=$(pwgen -cny 10 1)
+    ROOT_PASSWORD=Lozinka01
+    SAMBA_ADMIN_PASSWORD=Lozinka01
+    export KERBEROS_PASSWORD=Lozinka01
     echo "root:$ROOT_PASSWORD" | chpasswd
     echo Root password: $ROOT_PASSWORD
     echo Samba administrator password: $SAMBA_ADMIN_PASSWORD
@@ -25,17 +36,14 @@ appSetup () {
     rm -f /etc/samba/smb.conf
     rm -rf /var/lib/samba/private/*
     samba-tool domain provision --use-rfc2307 --domain=$SAMBA_DOMAIN --realm=$SAMBA_REALM --server-role=dc\
-      --dns-backend=BIND9_DLZ --adminpass=$SAMBA_ADMIN_PASSWORD $SAMBA_HOST_IP
-    cp /var/lib/samba/private/krb5.conf /etc/krb5.conf
-    # Create Kerberos database
-    expect kdb5_util_create.expect
-    # Export kerberos keytab for use with sssd
-    samba-tool domain exportkeytab /etc/krb5.keytab --principal ${HOSTNAME}\$
-    sed -i "s/SAMBA_REALM/${SAMBA_REALM}/" /etc/sssd/sssd.conf
+      --dns-backend=BIND9_DLZ --adminpass=$SAMBA_ADMIN_PASSWORD $SAMBA_HOST_IP_PARAM
+
 }
 
 appStart () {
     [ -f /etc/samba/.alreadysetup ] && echo "Skipping setup..." || appSetup
+
+    kerberosInit
 
     # Start the services
     /usr/bin/supervisord
